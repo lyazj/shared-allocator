@@ -20,18 +20,18 @@ static system_error make_system_error(const string &what) { return {errno, syste
 
 class global_shared_allocator::driver {
 public:
-  // This puts the driver at the beginning of the shared memory.
+  // Map shared memory and create/find the driver at the beginning.
   static void create();
 
-  // This mustn't be a non-static member, otherwise it would destroy `this`.
-  static void destroy(driver *);
+  // Destroy/discard the driver and unmap shared memory.
+  static void destroy();
 
   void *allocate(size_t n);
   void deallocate(void *p, size_t n);
 
 private:
   driver(size_t size);
-  ~driver();
+  ~driver() noexcept(false);
 
   // Semaphores may support inter-process better than pthreads.
   sem_t sem_;
@@ -132,8 +132,7 @@ const char *global_shared_allocator::shm_open(const char *name, int oflag, mode_
 void global_shared_allocator::shm_close()
 {
   if(!driver_) throw logic_error("invalid call to "s + __func__);
-  driver::destroy(driver_);
-  driver_ = NULL;
+  driver::destroy();
   close(shmfd_);
   shmfd_ = -1;
   oflag_ = 0;
@@ -187,13 +186,14 @@ void global_shared_allocator::driver::create()
   }
 }
 
-void global_shared_allocator::driver::destroy(driver *instance)
+void global_shared_allocator::driver::destroy()
 {
   // Destroy driver.
-  if(oflag_ & O_TRUNC) instance->~driver();
+  if(oflag_ & O_TRUNC) driver_->~driver();
 
   // Unmap shared memory.
-  if(munmap(instance, max_size_)) throw make_system_error("munmap");
+  if(munmap(driver_, max_size_)) throw make_system_error("munmap");
+  driver_ = NULL;
 }
 
 global_shared_allocator::driver::driver(size_t size)
@@ -206,9 +206,9 @@ global_shared_allocator::driver::driver(size_t size)
   if(size >= min_chunk_size_) chunk::add_chunk(&this[1], size);
 }
 
-global_shared_allocator::driver::~driver()
+global_shared_allocator::driver::~driver() noexcept(false)
 {
-  // empty
+  if(sem_destroy(&sem_)) throw make_system_error("sem_destroy");
 }
 
 void *global_shared_allocator::driver::allocate(size_t size)
