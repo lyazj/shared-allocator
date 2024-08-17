@@ -71,7 +71,7 @@ public:
   void deallocate(value_type *p, size_t n) { global_shared_allocator::deallocate(p, n * sizeof(value_type)); }
 };
 
-// Supports fast move-construction and move-assignment.
+// Supports fast move-construction and move-assignment for T.
 template<class T> inline bool operator==(const shared_allocator<T> &, const shared_allocator<T> &) { return true; }
 
 // Placement new/delete operators for shared memory.

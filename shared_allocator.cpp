@@ -49,7 +49,7 @@ private:
   // 4096 is a typical page size. It is hard-coded for simplicity. Use `getpagesize()` instead on demand.
   static inline constexpr size_t min_size_ = 4096;
 
-  // 16 is a typical align for `malloc()`. Change it on demand.
+  // 16 is a typical alignment for `malloc()`. Change it on demand.
   static inline constexpr size_t data_align_ = 16;
 
   // Take the alignment as the minimal data (payload) size.
